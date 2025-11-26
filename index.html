@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Paper</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    #viewer-container {
+      position: relative;
+      width: auto;
+      text-align: center;
+    }
+    canvas.page {
+      display: block;
+      margin: 20px auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+    /* Zoom butonları sağa yapışık, PC'de görünsün */
+    #zoom-controls {
+      position: fixed;
+      right: 25px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      background: white;
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    #zoom-controls button {
+      font-size: 20px;
+      padding: 8px 10px;
+      cursor: pointer;
+      border: none;
+      background-color: #f5f5f5;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #zoom-controls button:hover {
+      background-color: #e8e8e8;
+    }
+    @media (max-width: 768px) {
+      #zoom-controls {
+        display: none; /* Telefon/tablette gizle */
+      }
+      body {
+        overflow: auto; /* Mobilde pinch-zoom serbest */
+      }
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+<div id="viewer-container"></div>
+
+<!-- Zoom kontrolleri (sadece PC) -->
+<div id="zoom-controls">
+  <button onclick="zoomIn()">➕</button>
+  <button onclick="zoomOut()">➖</button>
+  <button onclick="zoomReset()">🔄</button>
+</div>
+
+<script>
+  const url = 'paper.pdf';
+  let currentZoom = 1.0;
+  let pdfDoc = null;
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  function autoZoom() {
+    const screenHeight = window.innerHeight;
+    const pageTargetHeight = screenHeight * 1.48; // 📌 YENİ (%70 height fit)
+    return pageTargetHeight / 1123; // Varsayılan PDF yüksekliği (px)
+  }
+
+  function renderPDF() {
+    document.querySelector("#viewer-container").innerHTML = "";
+    pdfjsLib.getDocument(url).promise.then(function(pdf) {
+      pdfDoc = pdf;
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        pdf.getPage(pageNum).then(function(page) {
+          let viewport = page.getViewport({ scale: currentZoom });
+
+          let canvas = document.createElement("canvas");
+          canvas.className = "page";
+          let context = canvas.getContext("2d");
+
+          const ratio = window.devicePixelRatio || 1;
+          canvas.width = viewport.width * ratio;
+          canvas.height = viewport.height * ratio;
+          canvas.style.width = viewport.width + "px";
+          canvas.style.height = viewport.height + "px";
+          context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+          document.querySelector("#viewer-container").appendChild(canvas);
+
+          page.render({
+            canvasContext: context,
+            viewport: viewport
+          });
+        });
+      }
+    });
+  }
+
+  // Zoom fonksiyonları
+  function zoomIn() { currentZoom *= 1.2; renderPDF(); }
+  function zoomOut() { currentZoom /= 1.2; renderPDF(); }
+  function zoomReset() { currentZoom = autoZoom(); renderPDF(); }
+
+  // İlk yüklemede otomatik zoom
+  if (window.innerWidth > 768) {
+    currentZoom = autoZoom();
+  }
+  renderPDF();
+
+  // Ekran boyutu değişirse yeniden hesapla
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      currentZoom = autoZoom();
+      renderPDF();
+    }
+  });
+</script>
+
+</body>
+</html>
